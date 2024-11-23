@@ -6,13 +6,14 @@ CREDENTIALS_FILE = 'credentials.json'
 TOKEN_FILE = 'token.pickle'
 
 # Search Settings
-MAX_RESULTS = 500
+MAX_RESULTS = 50
 SEARCH_PATTERNS = [
     'unsubscribe',
     '"opt out"',
     '"email preferences"'
 ]
 SEARCH_QUERY = ' OR '.join(SEARCH_PATTERNS)
+RATE_LIMIT_DELAY = 0.5 
 
 # Operation Settings
 DRY_RUN = False  # Set to True to prevent actual deletions

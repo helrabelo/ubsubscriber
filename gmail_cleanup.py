@@ -38,28 +38,12 @@ class GmailCleanupTool:
                     )
                 flow = InstalledAppFlow.from_client_secrets_file(
                     config.CREDENTIALS_FILE, config.SCOPES)
-                creds = flow.run_local_server(port=0)
+                creds = flow.run_local_server(port=8080)
 
             with open(config.TOKEN_FILE, 'wb') as token:
                 pickle.dump(creds, token)
 
         self.service = build('gmail', 'v1', credentials=creds)
-
-    def find_unsubscribe_links(self, email_body: str) -> Set[str]:
-        """Extract unsubscribe links from email body."""
-        soup = BeautifulSoup(email_body, 'html.parser')
-        unsubscribe_links = set()
-
-        # Check common patterns
-        for pattern in config.UNSUBSCRIBE_PATTERNS:
-            links = soup.find_all('a', href=True, text=re.compile(pattern, re.I))
-            unsubscribe_links.update(link['href'] for link in links)
-
-        # Check List-Unsubscribe header links
-        header_links = soup.find_all('a', href=True, attrs={'data-saferedirecturl': True})
-        unsubscribe_links.update(link['href'] for link in header_links)
-
-        return unsubscribe_links
 
     def analyze_marketing_emails(self) -> None:
         """Analyze inbox for marketing emails."""
@@ -76,9 +60,12 @@ class GmailCleanupTool:
                 print("No marketing emails found!")
                 return
 
-            print(f"Found {len(messages)} potential marketing emails")
+            total = len(messages)
+            print(f"Found {total} potential marketing emails")
 
-            for message in messages:
+            for i, message in enumerate(messages, 1):
+                print(f"\rProcessing email {i}/{total}...", end='', flush=True)
+                
                 msg = self.service.users().messages().get(
                     userId='me',
                     id=message['id'],
@@ -101,9 +88,26 @@ class GmailCleanupTool:
 
                 time.sleep(config.RATE_LIMIT_DELAY)
 
+            print("\nAnalysis complete! Processing results...")
+
         except HttpError as error:
             print(f"An error occurred: {error}")
 
+    def find_unsubscribe_links(self, email_body: str) -> Set[str]:
+        """Extract unsubscribe links from email body."""
+        soup = BeautifulSoup(email_body, 'html.parser')
+        unsubscribe_links = set()
+
+        # Fix the deprecation warning
+        for pattern in config.UNSUBSCRIBE_PATTERNS:
+            links = soup.find_all('a', href=True, string=re.compile(pattern, re.I))
+            unsubscribe_links.update(link['href'] for link in links)
+
+        # Check List-Unsubscribe header links
+        header_links = soup.find_all('a', href=True, attrs={'data-saferedirecturl': True})
+        unsubscribe_links.update(link['href'] for link in header_links)
+
+        return unsubscribe_links
     def process_emails(self) -> None:
         """Process emails based on user input."""
         print("\nSender Summary:")
